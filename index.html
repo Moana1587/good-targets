@@ -118,6 +118,9 @@
           </caption>
           <thead>
             <tr>
+              <th scope="col" class="check-col">
+                <input type="checkbox" id="select-all" aria-label="Select all traders on this page" />
+              </th>
               <th scope="col" aria-sort="ascending">
                 <button type="button" data-sort="id">No <span class="cue"></span></button>
               </th>
@@ -146,14 +149,20 @@
           </thead>
           <tbody id="rows">
             <tr class="empty-row">
-              <td colspan="8">Loading traders…</td>
+              <td colspan="9">Loading traders…</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <footer class="pager">
-        <p id="range">Loading traders…</p>
+        <div class="pager-lead">
+          <p id="range">Loading traders…</p>
+          <div class="bulk" id="bulk" hidden>
+            <button type="button" class="btn danger" id="bulk-delete">Delete selected</button>
+            <button type="button" class="btn ghost" id="bulk-clear">Clear</button>
+          </div>
+        </div>
         <div class="pager-actions">
           <button type="button" class="btn ghost" id="prev">Previous</button>
           <button type="button" class="btn ghost" id="next">Next</button>
@@ -221,7 +230,7 @@
       <p class="eyebrow">Delete</p>
       <h2 id="confirm-title">Remove this trader?</h2>
       <dl class="kv" id="confirm-body"></dl>
-      <p class="hint">This permanently deletes the row from good_traders.</p>
+      <p class="hint" id="confirm-hint">This permanently deletes the row from good_traders.</p>
       <p class="form-error" id="confirm-error" hidden></p>
       <div class="panel-actions">
         <span class="spacer"></span>

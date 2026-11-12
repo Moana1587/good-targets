@@ -1,7 +1,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm";
 
 const PAGE_SIZE = 20;
-const COLSPAN = 8;
+const COLSPAN = 9;
 const AUTH_EMAIL = "daniel.rosado0205@gmail.com";
 const AUTH_PASSWORD_SHA256 = "b84e3fe612374e7b57ed5d59d9e7e36b8e49aaccd61a13aad0d7be3e1ca4ccb1";
 const AUTH_KEY = "good-traders-session";
@@ -21,6 +21,7 @@ const state = {
   pendingDelete: null,
   saving: false,
   bound: false,
+  selected: new Set(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -179,6 +180,17 @@ function bind() {
   });
 
   $("rows").addEventListener("click", onTableClick);
+  $("select-all").addEventListener("change", onSelectPage);
+  $("bulk-delete").addEventListener("click", () => {
+    const rows = state.rows
+      .filter((row) => state.selected.has(row.id))
+      .sort((a, b) => displayNo(a) - displayNo(b));
+    if (rows.length) openConfirm(rows);
+  });
+  $("bulk-clear").addEventListener("click", () => {
+    state.selected.clear();
+    render();
+  });
   $("refresh").addEventListener("click", () => load());
   $("retry").addEventListener("click", () => load());
   $("add").addEventListener("click", () => openEditor(null));
@@ -286,6 +298,16 @@ function onTableClick(event) {
   const row = state.rows.find((item) => String(item.id) === tr.dataset.id);
   if (!row) return;
 
+  if (event.target.closest(".check-cell")) {
+    const input = event.target.closest("[data-select]");
+    if (input) {
+      if (input.checked) state.selected.add(row.id);
+      else state.selected.delete(row.id);
+      syncSelection();
+    }
+    return;
+  }
+
   const walletLink = event.target.closest("a[data-view='wallet']");
   if (walletLink) {
     markViewed(row);
@@ -369,12 +391,13 @@ async function onSubmit(event) {
 }
 
 async function onDelete() {
-  const row = state.pendingDelete;
-  if (!row || state.saving) return;
+  const rows = state.pendingDelete;
+  if (!rows?.length || state.saving) return;
 
   state.saving = true;
   $("confirm-delete").disabled = true;
-  const { error } = await state.client.from("good_traders").delete().eq("id", row.id);
+  const ids = rows.map((row) => row.id);
+  const { error } = await state.client.from("good_traders").delete().in("id", ids);
   state.saving = false;
   $("confirm-delete").disabled = false;
 
@@ -385,8 +408,9 @@ async function onDelete() {
   }
 
   $("confirm").close();
-  if ($("editor").open && state.editingId === row.id) $("editor").close();
-  toast("Trader deleted.");
+  for (const id of ids) state.selected.delete(id);
+  if ($("editor").open && ids.includes(state.editingId)) $("editor").close();
+  toast(ids.length === 1 ? "Trader deleted." : `${ids.length} traders deleted.`);
   await load();
 }
 
@@ -410,23 +434,42 @@ function openEditor(row) {
   $("token").focus();
 }
 
-function openConfirm(row) {
-  state.pendingDelete = row;
+function openConfirm(rowOrRows) {
+  const rows = (Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows]).filter(Boolean);
+  state.pendingDelete = rows;
   $("confirm-error").hidden = true;
   $("confirm-error").textContent = "";
+  const many = rows.length > 1;
+  $("confirm-title").textContent = many ? `Remove ${rows.length} traders?` : "Remove this trader?";
+  $("confirm-delete").textContent = many ? `Delete ${rows.length}` : "Delete trader";
+  $("confirm-hint").textContent = many
+    ? "This permanently deletes the selected rows from good_traders."
+    : "This permanently deletes the row from good_traders.";
   const body = $("confirm-body");
   body.replaceChildren();
-  for (const [label, value] of [
-    ["No", displayNo(row)],
-    ["Token", row.token],
-    ["Wallet", row.wallet],
-    ["Score", row.risky_bad_good],
-    ["Network", row.network],
-    ["Created", formatStamp(row.created_at)],
-    ["Viewed", row.viewed ? "Yes" : "No"],
-  ]) {
-    const wrap = h("div", {}, [h("dt", { text: label }), h("dd", { text: value || "—" })]);
-    body.append(wrap);
+  if (!many) {
+    const row = rows[0];
+    for (const [label, value] of [
+      ["No", displayNo(row)],
+      ["Token", row.token],
+      ["Wallet", row.wallet],
+      ["Score", row.risky_bad_good],
+      ["Network", row.network],
+      ["Created", formatStamp(row.created_at)],
+      ["Viewed", row.viewed ? "Yes" : "No"],
+    ]) {
+      body.append(h("div", {}, [h("dt", { text: label }), h("dd", { text: value || "—" })]));
+    }
+  } else {
+    const preview = rows.slice(0, 6);
+    for (const row of preview) {
+      body.append(h("div", {}, [h("dt", { text: `No ${displayNo(row)}` }), h("dd", { text: row.token || "—" })]));
+    }
+    if (rows.length > preview.length) {
+      body.append(
+        h("div", {}, [h("dt", { text: "More" }), h("dd", { text: `${rows.length - preview.length} other traders` })]),
+      );
+    }
   }
   if (!$("confirm").open) $("confirm").showModal();
 }
@@ -497,11 +540,45 @@ function updateDuplicateHint() {
 
 function fillNetworkList() {
   const list = $("network-list");
-  const names = new Set(["Solana", "Ethereum", "Base", "BSC"]);
+  const names = new Set(["Solana", "Ethereum", "Base", "BSC", "Elysium"]);
   for (const row of state.rows) {
     if (row.network) names.add(row.network);
   }
   list.replaceChildren(...[...names].sort((a, b) => a.localeCompare(b)).map((name) => h("option", { value: name })));
+}
+
+function onSelectPage() {
+  const pageRows = currentPageRows();
+  if ($("select-all").checked) {
+    for (const row of pageRows) state.selected.add(row.id);
+  } else {
+    for (const row of pageRows) state.selected.delete(row.id);
+  }
+  render();
+}
+
+function currentPageRows() {
+  const rows = visibleRows();
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const page = Math.min(Math.max(state.page, 1), pages);
+  const start = (page - 1) * PAGE_SIZE;
+  return rows.slice(start, start + PAGE_SIZE);
+}
+
+function syncSelection() {
+  const live = new Set(state.rows.map((row) => row.id));
+  for (const id of [...state.selected]) {
+    if (!live.has(id)) state.selected.delete(id);
+  }
+  const pageRows = currentPageRows();
+  const selectedOnPage = pageRows.filter((row) => state.selected.has(row.id)).length;
+  const box = $("select-all");
+  box.disabled = pageRows.length === 0;
+  box.checked = pageRows.length > 0 && selectedOnPage === pageRows.length;
+  box.indeterminate = selectedOnPage > 0 && selectedOnPage < pageRows.length;
+  const count = state.selected.size;
+  $("bulk").hidden = count === 0;
+  $("bulk-delete").textContent = count === 1 ? "Delete selected" : `Delete selected (${count})`;
 }
 
 function render() {
@@ -554,6 +631,7 @@ function render() {
   $("next").hidden = pages < 2;
   $("prev").disabled = state.page <= 1;
   $("next").disabled = state.page >= pages;
+  syncSelection();
 }
 
 function renderEmpty() {
@@ -575,14 +653,22 @@ function renderEmpty() {
 
 function renderRow(row) {
   const when = formatParts(row.created_at);
-  const tr = h("tr", { "data-id": row.id }, [
+  const tr = h("tr", { "data-id": row.id, class: state.selected.has(row.id) ? "is-selected" : "" }, [
+    h("td", { class: "check-cell" }, [
+      h("label", { class: "check" }, [
+        h("input", {
+          type: "checkbox",
+          "data-select": "row",
+          checked: state.selected.has(row.id),
+          "aria-label": `Select No ${displayNo(row)}`,
+        }),
+      ]),
+    ]),
     h("td", { class: "num", "data-label": "No", text: String(displayNo(row)) }),
     addressCell(row.token, "token", "Token", row.network),
     addressCell(row.wallet, "wallet", "Wallet", row.network),
     h("td", { "data-label": "Score" }, [scoreNode(row.risky_bad_good)]),
-    h("td", { "data-label": "Network" }, [
-      row.network ? document.createTextNode(row.network) : h("span", { class: "muted", text: "—" }),
-    ]),
+    h("td", { "data-label": "Network" }, [networkNode(row.network)]),
     h("td", { "data-label": "Created" }, [
       h("div", { class: "when", title: row.created_at || "" }, [
         document.createTextNode(when.date),
@@ -658,6 +744,67 @@ async function persistViewed(row) {
     render();
     toast("Could not save viewed.", "error");
   }
+}
+
+function networkNode(network) {
+  if (!network) return h("span", { class: "muted", text: "—" });
+  const kind = networkKind(network);
+  const kids = [];
+  if (kind) kids.push(networkIcon(kind));
+  kids.push(document.createTextNode(network));
+  return h("span", { class: kind ? `network is-${kind}` : "network" }, kids);
+}
+
+function networkKind(network) {
+  const key = (network || "").trim().toLowerCase();
+  if (key === "solana" || key === "sol") return "solana";
+  if (key === "bsc" || key === "bnb" || key === "binance smart chain") return "bsc";
+  if (key === "elysium" || key === "esylium") return "elysium";
+  return "";
+}
+
+let networkIconSeq = 0;
+
+function networkIcon(kind) {
+  networkIconSeq += 1;
+  const id = `net-${kind}-${networkIconSeq}`;
+  const svg = svgEl("svg", { viewBox: "0 0 24 24", class: "network-icon", "aria-hidden": "true" });
+  if (kind === "solana") {
+    const gradient = svgEl("linearGradient", { id, x1: "0", y1: "1", x2: "1", y2: "0" });
+    gradient.append(
+      svgEl("stop", { offset: "0", "stop-color": "#9945FF" }),
+      svgEl("stop", { offset: "1", "stop-color": "#14F195" }),
+    );
+    svg.append(svgEl("defs", {}, [gradient]));
+    for (const d of [
+      "M4.7 16.35c.14-.14.33-.22.53-.22h14.55c.46 0 .69.56.36.88l-2.35 2.35c-.14.14-.33.22-.53.22H2.71c-.46 0-.69-.56-.36-.88l2.35-2.35z",
+      "M4.7 4.42c.14-.14.34-.22.54-.22h14.55c.46 0 .69.56.36.88L17.8 7.43c-.14.14-.33.22-.53.22H2.71c-.46 0-.69-.56-.36-.88L4.7 4.42z",
+      "M19.3 10.22c-.14-.14-.33-.22-.53-.22H4.22c-.46 0-.69.56-.36.88l2.35 2.35c.14.14.33.22.53.22h14.55c.46 0 .69-.56.36-.88l-2.35-2.35z",
+    ]) {
+      svg.append(svgEl("path", { fill: `url(#${id})`, d }));
+    }
+  } else if (kind === "bsc") {
+    svg.append(
+      svgEl("path", {
+        fill: "#F3BA2F",
+        d: "M12 2.2 14.3 4.5 12 6.8 9.7 4.5 12 2.2zM12 17.2l2.3 2.3L12 21.8l-2.3-2.3L12 17.2zM4.5 9.7 6.8 12 4.5 14.3 2.2 12 4.5 9.7zM19.5 9.7 21.8 12l-2.3 2.3L17.2 12l2.3-2.3zM12 9.7l2.3 2.3L12 14.3 9.7 12 12 9.7z",
+      }),
+    );
+  } else {
+    svg.append(
+      svgEl("circle", { cx: "12", cy: "12", r: "9.2", fill: "#140E2A", stroke: "#8B7CFF", "stroke-width": "1.4" }),
+      svgEl("path", { fill: "#3DDC97", d: "M12 4.8 16.6 12.2H7.4L12 4.8z" }),
+      svgEl("path", { fill: "#8B7CFF", d: "M7.8 13.1h8.4L12 19.2 7.8 13.1z" }),
+    );
+  }
+  return svg;
+}
+
+function svgEl(tag, attrs, kids = []) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  for (const kid of kids) node.append(kid);
+  return node;
 }
 
 function gmgnHref(field, address, network) {

@@ -309,28 +309,70 @@ h2 {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1000px;
+  min-width: 1080px;
 }
 
 th:nth-child(1) {
-  width: 68px;
+  width: 44px;
 }
 
-th:nth-child(4),
+th:nth-child(2) {
+  width: 64px;
+}
+
 th:nth-child(5) {
-  width: 108px;
+  width: 88px;
 }
 
 th:nth-child(6) {
-  width: 128px;
+  width: 132px;
 }
 
 th:nth-child(7) {
-  width: 96px;
+  width: 128px;
 }
 
 th:nth-child(8) {
+  width: 96px;
+}
+
+th:nth-child(9) {
   width: 84px;
+}
+
+.check-col,
+.check-cell {
+  padding-right: 0;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+}
+
+.check input,
+.check-col input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+tbody tr.is-selected {
+  background: rgba(226, 245, 106, 0.06);
+}
+
+.network {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.network-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: block;
 }
 
 th,
@@ -531,6 +573,14 @@ tr.flash {
   margin-top: 14px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.pager-lead,
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .pager-actions {
