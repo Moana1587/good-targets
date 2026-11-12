@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Good traders</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2310140f'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23e2f56a' stroke-width='1.6'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='%23e2f56a'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <main id="login" class="gate">
+      <form id="login-form" class="gate-card">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <circle cx="16" cy="16" r="3" fill="currentColor" />
+          <path
+            d="M16 1.5v5.5M16 25v5.5M1.5 16H7M25 16h5.5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
+        </svg>
+        <p class="eyebrow">good_traders</p>
+        <h1>Sign in</h1>
+        <p class="lede">Open the trader ledger with your account.</p>
+
+        <label class="field">
+          <span>Email</span>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autocomplete="username"
+            spellcheck="false"
+            required
+          />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <p class="form-error" id="login-error" hidden></p>
+        <button type="submit" class="btn primary" id="login-submit">Sign in</button>
+      </form>
+    </main>
+
+    <div class="shell" id="app" hidden>
+      <header class="top">
+        <div class="brand">
+          <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <circle cx="16" cy="16" r="3" fill="currentColor" />
+            <path
+              d="M16 1.5v5.5M16 25v5.5M1.5 16H7M25 16h5.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          <div>
+            <p class="eyebrow">good_traders</p>
+            <h1>Good traders</h1>
+            <p class="lede">View, add, edit, and delete every row in this table.</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <p class="who" id="signed-in"></p>
+          <p class="sync" id="sync">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="sync-label">Connecting…</span>
+          </p>
+          <button type="button" class="btn ghost" id="sign-out">Sign out</button>
+          <button type="button" class="btn ghost" id="refresh">Refresh</button>
+          <button type="button" class="btn primary" id="add">New trader</button>
+        </div>
+      </header>
+
+      <section class="stats" id="stats" aria-label="Table summary"></section>
+
+      <div class="toolbar">
+        <label class="search">
+          <span class="sr-only">Search traders</span>
+          <input
+            id="search"
+            type="search"
+            placeholder="Search token, wallet, score, network, or id"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        <div class="chips" id="chips" role="toolbar" aria-label="Filter by network"></div>
+      </div>
+
+      <p class="banner" id="banner" hidden>
+        <span id="banner-text"></span>
+        <button type="button" class="btn ghost" id="retry">Retry</button>
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <caption class="sr-only">
+            Good traders
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="descending">
+                <button type="button" data-sort="id">Id <span class="cue"></span></button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button type="button" data-sort="token">Token <span class="cue"></span></button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button type="button" data-sort="wallet">Wallet <span class="cue"></span></button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button type="button" data-sort="risky_bad_good" title="Column risky_bad_good">
+                  Score <span class="cue"></span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button type="button" data-sort="network">Network <span class="cue"></span></button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button type="button" data-sort="created_at">Created <span class="cue"></span></button>
+              </th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr class="empty-row">
+              <td colspan="7">Loading traders…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="pager">
+        <p id="range">Loading traders…</p>
+        <div class="pager-actions">
+          <button type="button" class="btn ghost" id="prev">Previous</button>
+          <button type="button" class="btn ghost" id="next">Next</button>
+        </div>
+      </footer>
+      <p class="foot">Project <span id="project">…</span> · table good_traders</p>
+    </div>
+
+    <dialog id="editor" aria-labelledby="editor-title">
+      <header class="panel-head">
+        <div>
+          <p class="eyebrow" id="editor-kicker">New row</p>
+          <h2 id="editor-title">New trader</h2>
+        </div>
+        <button type="button" class="icon-x" id="editor-close" aria-label="Close">×</button>
+      </header>
+      <form id="trader-form">
+        <p class="meta" id="editor-meta">Id and created_at are assigned when you save.</p>
+
+        <label class="field">
+          <span>Token</span>
+          <input id="token" name="token" autocomplete="off" spellcheck="false" autocapitalize="off" />
+          <small class="field-error" id="token-error"></small>
+        </label>
+
+        <label class="field">
+          <span>Wallet</span>
+          <input id="wallet" name="wallet" autocomplete="off" spellcheck="false" autocapitalize="off" />
+          <small class="field-error" id="wallet-error"></small>
+        </label>
+
+        <label class="field">
+          <span>Score</span>
+          <input
+            id="score"
+            name="risky_bad_good"
+            placeholder="0/3"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <small class="hint">Stored in risky_bad_good. Current rows use values like 0/3.</small>
+          <small class="field-error" id="score-error"></small>
+        </label>
+
+        <label class="field">
+          <span>Network</span>
+          <input id="network" name="network" placeholder="Solana" list="network-list" autocomplete="off" />
+          <datalist id="network-list"></datalist>
+          <small class="field-error" id="network-error"></small>
+        </label>
+
+        <p class="hint" id="duplicate-hint" hidden></p>
+        <p class="form-error" id="form-error" hidden></p>
+
+        <div class="panel-actions">
+          <button type="button" class="btn danger" id="editor-delete" hidden>Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn ghost" id="editor-cancel">Cancel</button>
+          <button type="submit" class="btn primary" id="editor-save">Save trader</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="confirm" aria-labelledby="confirm-title">
+      <p class="eyebrow">Delete</p>
+      <h2 id="confirm-title">Remove this trader?</h2>
+      <dl class="kv" id="confirm-body"></dl>
+      <p class="hint">This permanently deletes the row from good_traders.</p>
+      <p class="form-error" id="confirm-error" hidden></p>
+      <div class="panel-actions">
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" id="confirm-cancel">Keep</button>
+        <button type="button" class="btn danger" id="confirm-delete">Delete trader</button>
+      </div>
+    </dialog>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <script>
+      if (localStorage.getItem("good-traders-session") === "daniel.rosado0205@gmail.com") {
+        document.getElementById("login").hidden = true;
+        document.getElementById("app").hidden = false;
+      }
+    </script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
