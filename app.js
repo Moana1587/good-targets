@@ -14,7 +14,7 @@ const state = {
   search: "",
   network: "all",
   sortKey: "id",
-  sortDir: "desc",
+  sortDir: "asc",
   page: 1,
   flashId: null,
   editingId: null,
@@ -172,7 +172,7 @@ function bind() {
         state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
       } else {
         state.sortKey = key;
-        state.sortDir = key === "id" || key === "created_at" ? "desc" : "asc";
+        state.sortDir = key === "created_at" ? "desc" : "asc";
       }
       render();
     });
@@ -240,7 +240,7 @@ async function load() {
   const { data, error } = await state.client
     .from("good_traders")
     .select("id, token, wallet, risky_bad_good, network, created_at")
-    .order("id", { ascending: false });
+    .order("id", { ascending: true });
 
   state.loading = false;
   $("refresh").disabled = false;
@@ -273,6 +273,8 @@ function onTableClick(event) {
 
   const row = state.rows.find((item) => String(item.id) === tr.dataset.id);
   if (!row) return;
+
+  if (event.target.closest("a")) return;
 
   const copyButton = event.target.closest("[data-copy]");
   if (copyButton) {
@@ -373,7 +375,7 @@ async function onDelete() {
 
 function openEditor(row) {
   state.editingId = row ? row.id : null;
-  $("editor-kicker").textContent = row ? `Id ${row.id}` : "New row";
+  $("editor-kicker").textContent = row ? `No ${displayNo(row)}` : "New row";
   $("editor-title").textContent = row ? "Edit trader" : "New trader";
   $("editor-save").textContent = row ? "Save changes" : "Save trader";
   $("token").value = row?.token ?? "";
@@ -382,7 +384,7 @@ function openEditor(row) {
   $("network").value = row?.network ?? "";
   $("editor-meta").textContent = row
     ? `Created ${formatStamp(row.created_at)}`
-    : "Id and created_at are assigned when you save.";
+    : "Created time is assigned when you save.";
   $("editor-delete").hidden = !row;
   clearEditorErrors();
   updateDuplicateHint();
@@ -398,7 +400,7 @@ function openConfirm(row) {
   const body = $("confirm-body");
   body.replaceChildren();
   for (const [label, value] of [
-    ["Id", row.id],
+    ["No", displayNo(row)],
     ["Token", row.token],
     ["Wallet", row.wallet],
     ["Score", row.risky_bad_good],
@@ -472,7 +474,7 @@ function updateDuplicateHint() {
       fields.wallet,
   );
   hint.hidden = !match;
-  hint.textContent = match ? `Trader ${match.id} already uses this token and wallet.` : "";
+  hint.textContent = match ? `No ${displayNo(match)} already uses this token and wallet.` : "";
 }
 
 function fillNetworkList() {
@@ -485,6 +487,7 @@ function fillNetworkList() {
 }
 
 function render() {
+  rebuildNumbers();
   renderStats();
   renderChips();
   renderSort();
@@ -555,9 +558,9 @@ function renderEmpty() {
 function renderRow(row) {
   const when = formatParts(row.created_at);
   const tr = h("tr", { "data-id": row.id }, [
-    h("td", { class: "num", "data-label": "Id", text: String(row.id) }),
-    addressCell(row.token, "token", "Token"),
-    addressCell(row.wallet, "wallet", "Wallet"),
+    h("td", { class: "num", "data-label": "No", text: String(displayNo(row)) }),
+    addressCell(row.token, "token", "Token", row.network),
+    addressCell(row.wallet, "wallet", "Wallet", row.network),
     h("td", { "data-label": "Score" }, [scoreNode(row.risky_bad_good)]),
     h("td", { "data-label": "Network" }, [
       row.network ? document.createTextNode(row.network) : h("span", { class: "muted", text: "—" }),
@@ -570,35 +573,72 @@ function renderRow(row) {
     ]),
     h("td", { class: "actions-cell" }, [
       h("div", { class: "actions" }, [
-        h("button", { class: "text-btn", type: "button", "data-action": "edit", text: "Edit" }),
         h("button", {
-          class: "text-btn danger",
+          class: "icon-btn",
+          type: "button",
+          "data-action": "edit",
+          "aria-label": "Edit",
+          title: "Edit",
+        }, [icon("edit")]),
+        h("button", {
+          class: "icon-btn danger",
           type: "button",
           "data-action": "delete",
-          text: "Delete",
-        }),
+          "aria-label": "Delete",
+          title: "Delete",
+        }, [icon("trash")]),
       ]),
     ]),
   ]);
   return tr;
 }
 
-function addressCell(value, field, label) {
+function addressCell(value, field, label, network) {
   if (!value) {
     return h("td", { "data-label": label }, [h("span", { class: "muted", text: "—" })]);
   }
   return h("td", { "data-label": label }, [
     h("div", { class: "addr" }, [
-      h("span", { class: "addr-value", text: value, title: value }),
+      h("a", {
+        class: "addr-value",
+        href: gmgnHref(field, value, network),
+        target: "_blank",
+        rel: "noopener noreferrer",
+        title: `Open this ${label.toLowerCase()} on GMGN`,
+        text: value,
+      }),
       h("button", {
-        class: "text-btn copy",
+        class: "icon-btn",
         type: "button",
         "data-copy": field,
-        "aria-label": `Copy ${field}`,
-        text: "Copy",
-      }),
+        "aria-label": `Copy ${label.toLowerCase()}`,
+        title: `Copy ${label.toLowerCase()}`,
+      }, [icon("copy")]),
     ]),
   ]);
+}
+
+function gmgnHref(field, address, network) {
+  const kind = field === "wallet" ? "address" : "token";
+  return `https://gmgn.ai/${gmgnChain(network)}/${kind}/${encodeURIComponent(address)}`;
+}
+
+function gmgnChain(network) {
+  const key = (network || "").trim().toLowerCase();
+  const chains = {
+    solana: "sol",
+    sol: "sol",
+    ethereum: "eth",
+    eth: "eth",
+    base: "base",
+    bsc: "bsc",
+    bnb: "bsc",
+    "binance smart chain": "bsc",
+    tron: "tron",
+    trx: "tron",
+    monad: "monad",
+  };
+  return chains[key] || "sol";
 }
 
 function scoreNode(value) {
@@ -665,7 +705,7 @@ function rowMatches(row) {
   if (state.network !== "all" && (row.network || "") !== state.network) return false;
   const query = state.search.trim().toLowerCase();
   if (!query) return true;
-  return [row.id, row.token, row.wallet, row.risky_bad_good, row.network]
+  return [displayNo(row), row.token, row.wallet, row.risky_bad_good, row.network]
     .map((value) => (value ?? "").toString().toLowerCase())
     .join(" ")
     .includes(query);
@@ -717,12 +757,17 @@ function formatStamp(iso) {
 async function copyValue(value, button) {
   try {
     await navigator.clipboard.writeText(value);
-    const previous = button.textContent;
-    button.textContent = "Copied";
+    const previousLabel = button.getAttribute("aria-label");
+    button.replaceChildren(icon("check"));
     button.classList.add("is-copied");
+    button.setAttribute("aria-label", "Copied");
+    button.title = "Copied";
     setTimeout(() => {
-      button.textContent = previous;
+      if (!button.isConnected) return;
+      button.replaceChildren(icon("copy"));
       button.classList.remove("is-copied");
+      button.setAttribute("aria-label", previousLabel);
+      button.title = previousLabel;
     }, 1200);
   } catch {
     toast("Could not copy that value.", "error");
@@ -737,6 +782,54 @@ function toast(message, tone = "ok") {
 
 function squash(value) {
   return value.replace(/\s+/g, "");
+}
+
+let numberById = new Map();
+
+function rebuildNumbers() {
+  const ordered = [...state.rows].sort((a, b) => Number(a.id) - Number(b.id));
+  numberById = new Map(ordered.map((row, index) => [row.id, index + 1]));
+}
+
+function displayNo(row) {
+  if (!numberById.has(row.id)) rebuildNumbers();
+  return numberById.get(row.id) ?? "";
+}
+
+const ICONS = {
+  copy: [
+    ["rect", { x: "8.5", y: "8.5", width: "11", height: "11", rx: "1.5" }],
+    ["path", { d: "M15.5 8.5V5.2A1.2 1.2 0 0 0 14.3 4H5.2A1.2 1.2 0 0 0 4 5.2v9.1A1.2 1.2 0 0 0 5.2 15.5H8.5" }],
+  ],
+  edit: [
+    ["path", { d: "M12.6 5.2a1.8 1.8 0 0 1 2.5 0l3.7 3.7a1.8 1.8 0 0 1 0 2.5L9.2 21H4v-5.2L12.6 5.2z" }],
+    ["path", { d: "M11 7l6 6" }],
+  ],
+  trash: [
+    ["path", { d: "M4.5 7h15" }],
+    ["path", { d: "M9 7V4.8h6V7" }],
+    ["path", { d: "M7.2 7l.8 13h8l.8-13" }],
+    ["path", { d: "M10 10.5v6M14 10.5v6" }],
+  ],
+  check: [["path", { d: "M5 12.5l4.2 4.2L19 7" }]],
+};
+
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  for (const [tag, attrs] of ICONS[name]) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+    el.setAttribute("fill", "none");
+    el.setAttribute("stroke", "currentColor");
+    el.setAttribute("stroke-width", "1.8");
+    el.setAttribute("stroke-linecap", "round");
+    el.setAttribute("stroke-linejoin", "round");
+    svg.append(el);
+  }
+  return svg;
 }
 
 function h(tag, props = {}, kids = []) {

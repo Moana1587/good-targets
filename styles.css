@@ -326,7 +326,7 @@ th:nth-child(6) {
 }
 
 th:nth-child(7) {
-  width: 124px;
+  width: 84px;
 }
 
 th,
@@ -382,7 +382,7 @@ tbody tr[data-id]:hover {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: start;
+  align-items: center;
 }
 
 .addr-value {
@@ -393,26 +393,43 @@ tbody tr[data-id]:hover {
   word-break: break-all;
 }
 
-.text-btn {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--faint);
-  font-size: 12px;
-  font-weight: 600;
+a.addr-value {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: rgba(226, 245, 106, 0.4);
+  text-underline-offset: 2px;
 }
 
-.text-btn.copy {
-  margin-top: 1px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  padding: 3px 7px;
-  line-height: 1.2;
-}
-
-.text-btn:hover,
-.text-btn.is-copied {
+a.addr-value:hover {
   color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  flex: none;
+}
+
+.icon-btn:hover,
+.icon-btn.is-copied {
+  color: var(--accent);
+  border-color: rgba(226, 245, 106, 0.5);
+  background: rgba(226, 245, 106, 0.08);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
 .score {
@@ -451,12 +468,14 @@ tbody tr[data-id]:hover {
 
 .actions {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   white-space: nowrap;
 }
 
-.actions .text-btn.danger:hover {
+.actions .icon-btn.danger:hover {
   color: var(--danger);
+  border-color: rgba(255, 106, 69, 0.55);
+  background: var(--danger-soft);
 }
 
 .muted {
