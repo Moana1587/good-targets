@@ -1,7 +1,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm";
 
 const PAGE_SIZE = 20;
-const COLSPAN = 7;
+const COLSPAN = 8;
 const AUTH_EMAIL = "daniel.rosado0205@gmail.com";
 const AUTH_PASSWORD_SHA256 = "b84e3fe612374e7b57ed5d59d9e7e36b8e49aaccd61a13aad0d7be3e1ca4ccb1";
 const AUTH_KEY = "good-traders-session";
@@ -237,10 +237,22 @@ async function load() {
   $("refresh").disabled = true;
   if (first) render();
 
-  const { data, error } = await state.client
+  let { data, error } = await state.client
     .from("good_traders")
-    .select("id, token, wallet, risky_bad_good, network, created_at")
+    .select("id, token, wallet, risky_bad_good, network, created_at, viewed")
     .order("id", { ascending: true });
+
+  if (error && /viewed/i.test(error.message || "")) {
+    const fallback = await state.client
+      .from("good_traders")
+      .select("id, token, wallet, risky_bad_good, network, created_at")
+      .order("id", { ascending: true });
+    data = (fallback.data ?? []).map((row) => ({ ...row, viewed: false }));
+    error = fallback.error;
+    if (!error) {
+      state.error = "Add a viewed column on good_traders before viewed status can be saved.";
+    }
+  }
 
   state.loading = false;
   $("refresh").disabled = false;
@@ -274,6 +286,11 @@ function onTableClick(event) {
   const row = state.rows.find((item) => String(item.id) === tr.dataset.id);
   if (!row) return;
 
+  const walletLink = event.target.closest("a[data-view='wallet']");
+  if (walletLink) {
+    markViewed(row);
+    return;
+  }
   if (event.target.closest("a")) return;
 
   const copyButton = event.target.closest("[data-copy]");
@@ -383,7 +400,7 @@ function openEditor(row) {
   $("score").value = row?.risky_bad_good ?? "";
   $("network").value = row?.network ?? "";
   $("editor-meta").textContent = row
-    ? `Created ${formatStamp(row.created_at)}`
+    ? `Created ${formatStamp(row.created_at)} · ${row.viewed ? "Viewed" : "Not viewed"}`
     : "Created time is assigned when you save.";
   $("editor-delete").hidden = !row;
   clearEditorErrors();
@@ -406,6 +423,7 @@ function openConfirm(row) {
     ["Score", row.risky_bad_good],
     ["Network", row.network],
     ["Created", formatStamp(row.created_at)],
+    ["Viewed", row.viewed ? "Yes" : "No"],
   ]) {
     const wrap = h("div", {}, [h("dt", { text: label }), h("dd", { text: value || "—" })]);
     body.append(wrap);
@@ -571,6 +589,7 @@ function renderRow(row) {
         h("small", { text: when.time }),
       ]),
     ]),
+    h("td", { "data-label": "Viewed" }, [viewedNode(row.viewed)]),
     h("td", { class: "actions-cell" }, [
       h("div", { class: "actions" }, [
         h("button", {
@@ -605,6 +624,7 @@ function addressCell(value, field, label, network) {
         target: "_blank",
         rel: "noopener noreferrer",
         title: `Open this ${label.toLowerCase()} on GMGN`,
+        "data-view": field === "wallet" ? "wallet" : null,
         text: value,
       }),
       h("button", {
@@ -616,6 +636,28 @@ function addressCell(value, field, label, network) {
       }, [icon("copy")]),
     ]),
   ]);
+}
+
+function viewedNode(viewed) {
+  if (!viewed) return h("span", { class: "muted", text: "—" });
+  return h("span", { class: "viewed" }, [icon("check"), document.createTextNode("Yes")]);
+}
+
+function markViewed(row) {
+  if (row.viewed) return;
+  row.viewed = true;
+  const cell = document.querySelector(`tr[data-id="${CSS.escape(String(row.id))}"] [data-label="Viewed"]`);
+  if (cell) cell.replaceChildren(viewedNode(true));
+  persistViewed(row);
+}
+
+async function persistViewed(row) {
+  const { error } = await state.client.from("good_traders").update({ viewed: true }).eq("id", row.id);
+  if (error) {
+    row.viewed = false;
+    render();
+    toast("Could not save viewed.", "error");
+  }
 }
 
 function gmgnHref(field, address, network) {
@@ -705,7 +747,7 @@ function rowMatches(row) {
   if (state.network !== "all" && (row.network || "") !== state.network) return false;
   const query = state.search.trim().toLowerCase();
   if (!query) return true;
-  return [displayNo(row), row.token, row.wallet, row.risky_bad_good, row.network]
+  return [displayNo(row), row.token, row.wallet, row.risky_bad_good, row.network, row.viewed ? "viewed" : ""]
     .map((value) => (value ?? "").toString().toLowerCase())
     .join(" ")
     .includes(query);
@@ -722,6 +764,9 @@ function compareRows(a, b) {
   } else if (key === "created_at") {
     av = new Date(av).getTime() || 0;
     bv = new Date(bv).getTime() || 0;
+  } else if (key === "viewed") {
+    av = av ? 1 : 0;
+    bv = bv ? 1 : 0;
   } else {
     av = (av ?? "").toString().toLowerCase();
     bv = (bv ?? "").toString().toLowerCase();

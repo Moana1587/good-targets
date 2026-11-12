@@ -309,7 +309,7 @@ h2 {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 920px;
+  min-width: 1000px;
 }
 
 th:nth-child(1) {
@@ -326,6 +326,10 @@ th:nth-child(6) {
 }
 
 th:nth-child(7) {
+  width: 96px;
+}
+
+th:nth-child(8) {
   width: 84px;
 }
 
@@ -430,6 +434,20 @@ a.addr-value:hover {
   width: 14px;
   height: 14px;
   display: block;
+}
+
+.viewed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.viewed .icon {
+  width: 13px;
+  height: 13px;
 }
 
 .score {
